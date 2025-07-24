@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
+import { resumeAPI } from '../../services/api';
 import { Upload, FileText, Target, TrendingUp, CheckCircle, X } from 'lucide-react';
 
 export default function SkillAnalysis() {
@@ -9,6 +10,9 @@ export default function SkillAnalysis() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [analysisComplete, setAnalysisComplete] = useState(!!user?.profileComplete);
   const [showUpload, setShowUpload] = useState(!user?.profileComplete);
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [skillGapData, setSkillGapData] = useState<any>(null);
 
   const currentSkills = user?.skills || ['JavaScript', 'React', 'Node.js', 'HTML', 'CSS'];
   const desiredRole = user?.desiredRole || 'Senior Full Stack Developer';
@@ -26,16 +30,47 @@ export default function SkillAnalysis() {
     !currentSkills.some(current => current.toLowerCase().includes(skill.toLowerCase()))
   );
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadedFile(file);
-      // Simulate resume parsing
-      setTimeout(() => {
-        setAnalysisComplete(true);
-        updateUser({ profileComplete: true });
-        setShowUpload(false);
-      }, 2000);
+      setUploading(true);
+      
+      try {
+        const formData = new FormData();
+        formData.append('resume', file);
+        
+        const response = await resumeAPI.upload(formData);
+        if (response.data.success) {
+          setAnalysisComplete(true);
+          updateUser({ profileComplete: true });
+          setShowUpload(false);
+          
+          // Auto-analyze skills if desired role is set
+          if (user?.desiredRole) {
+            await analyzeSkills(user.desiredRole);
+          }
+        }
+      } catch (error) {
+        console.error('Resume upload error:', error);
+        alert('Failed to upload resume. Please try again.');
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
+
+  const analyzeSkills = async (desiredRole: string) => {
+    setAnalyzing(true);
+    try {
+      const response = await resumeAPI.analyzeSkills(desiredRole);
+      if (response.data.success) {
+        setSkillGapData(response.data.analysis);
+      }
+    } catch (error) {
+      console.error('Skill analysis error:', error);
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -103,10 +138,12 @@ export default function SkillAnalysis() {
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                 <div className="flex items-center justify-center space-x-2">
                   <FileText className="w-5 h-5 text-blue-600" />
-                  <span className="text-blue-800 font-medium">{uploadedFile.name}</span>
-                  <div className="flex items-center space-x-2 ml-4">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-blue-600 text-sm">Analyzing...</span>
+                    {uploading && (
+                      <div className="flex items-center space-x-2 ml-4">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-blue-600 text-sm">Uploading...</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -121,7 +158,9 @@ export default function SkillAnalysis() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-green-800">Matching Skills</p>
-                  <p className="text-3xl font-bold text-green-900 mt-2">{skillMatch.length}</p>
+                  <p className="text-3xl font-bold text-green-900 mt-2">
+                    {skillGapData?.matchingSkills?.length || skillMatch.length}
+                  </p>
                 </div>
                 <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
@@ -131,7 +170,9 @@ export default function SkillAnalysis() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-red-800">Skill Gaps</p>
-                  <p className="text-3xl font-bold text-red-900 mt-2">{missingSkills.length}</p>
+                  <p className="text-3xl font-bold text-red-900 mt-2">
+                    {skillGapData?.missingSkills?.length || missingSkills.length}
+                  </p>
                 </div>
                 <Target className="w-10 h-10 text-red-600" />
               </div>
@@ -142,7 +183,7 @@ export default function SkillAnalysis() {
                 <div>
                   <p className="text-sm font-medium text-blue-800">Match Rate</p>
                   <p className="text-3xl font-bold text-blue-900 mt-2">
-                    {Math.round((skillMatch.length / requiredSkills.length) * 100)}%
+                    {skillGapData?.matchPercentage || Math.round((skillMatch.length / requiredSkills.length) * 100)}%
                   </p>
                 </div>
                 <TrendingUp className="w-10 h-10 text-blue-600" />
@@ -158,11 +199,17 @@ export default function SkillAnalysis() {
                 <div>
                   <p className="text-sm text-gray-600">Target Role</p>
                   <p className="text-xl font-bold text-gray-900">{desiredRole}</p>
+                  {analyzing && (
+                    <div className="flex items-center space-x-2 mt-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="text-blue-600 text-sm">Analyzing skills...</span>
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Readiness Score</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {Math.round((skillMatch.length / requiredSkills.length) * 100)}%
+                    {skillGapData?.matchPercentage || Math.round((skillMatch.length / requiredSkills.length) * 100)}%
                   </p>
                 </div>
               </div>
@@ -178,7 +225,7 @@ export default function SkillAnalysis() {
                 </h4>
                 <div className="space-y-3">
                   {category.skills.map((skill, skillIndex) => {
-                    const hasSkill = currentSkills.includes(skill);
+                    const hasSkill = skillGapData?.matchingSkills?.includes(skill) || currentSkills.includes(skill);
                     return (
                       <div key={skillIndex} className="flex items-center justify-between">
                         <span className="text-gray-900 font-medium">{skill}</span>
@@ -208,10 +255,10 @@ export default function SkillAnalysis() {
               <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h4 className="font-semibold text-blue-900 mb-2">Priority Skills to Learn</h4>
                 <div className="space-y-2">
-                  {missingSkills.slice(0, 3).map((skill, index) => (
+                  {(skillGapData?.missingSkills || missingSkills).slice(0, 3).map((skill: any, index: number) => (
                     <div key={index} className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-blue-800 text-sm">{skill}</span>
+                      <span className="text-blue-800 text-sm">{skill.skill || skill}</span>
                     </div>
                   ))}
                 </div>
@@ -220,7 +267,7 @@ export default function SkillAnalysis() {
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                 <h4 className="font-semibold text-green-900 mb-2">Your Strengths</h4>
                 <div className="space-y-2">
-                  {skillMatch.slice(0, 3).map((skill, index) => (
+                  {(skillGapData?.matchingSkills || skillMatch).slice(0, 3).map((skill: string, index: number) => (
                     <div key={index} className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <span className="text-green-800 text-sm">{skill}</span>

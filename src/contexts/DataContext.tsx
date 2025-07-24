@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { quizAPI, learningAPI } from '../services/api';
 
 interface Quiz {
   id: string;
@@ -40,98 +41,62 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [quizzes, setQuizzes] = useState<Quiz[]>([
-    {
-      id: 'react-basics',
-      title: 'React Fundamentals',
-      completed: false,
-      questions: [
-        {
-          id: '1',
-          question: 'What is JSX?',
-          options: ['JavaScript XML', 'Java Syntax Extension', 'JSON Extension', 'JavaScript eXtension'],
-          correct: 0,
-          difficulty: 'easy',
-          skill: 'React'
-        },
-        {
-          id: '2',
-          question: 'Which hook is used for state management in functional components?',
-          options: ['useEffect', 'useState', 'useContext', 'useReducer'],
-          correct: 1,
-          difficulty: 'medium',
-          skill: 'React'
-        }
-      ]
-    },
-    {
-      id: 'python-advanced',
-      title: 'Python Advanced Concepts',
-      completed: false,
-      questions: [
-        {
-          id: '1',
-          question: 'What is a decorator in Python?',
-          options: ['A design pattern', 'A function that modifies another function', 'A data structure', 'A built-in module'],
-          correct: 1,
-          difficulty: 'hard',
-          skill: 'Python'
-        }
-      ]
-    }
-  ]);
-
-  const [learningModules, setLearningModules] = useState<LearningModule[]>([
-    {
-      id: 'react-hooks-deep-dive',
-      title: 'React Hooks Deep Dive',
-      description: 'Master advanced React hooks and custom hook patterns',
-      skill: 'React',
-      difficulty: 'Intermediate',
-      duration: '45 min',
-      type: 'video',
-      url: '#',
-      completed: false,
-      xpReward: 200
-    },
-    {
-      id: 'python-data-structures',
-      title: 'Python Data Structures & Algorithms',
-      description: 'Learn efficient data structures and algorithm implementation',
-      skill: 'Python',
-      difficulty: 'Advanced',
-      duration: '60 min',
-      type: 'practice',
-      url: '#',
-      completed: false,
-      xpReward: 300
-    },
-    {
-      id: 'system-design-basics',
-      title: 'System Design Fundamentals',
-      description: 'Understanding scalable system architecture',
-      skill: 'System Design',
-      difficulty: 'Intermediate',
-      duration: '90 min',
-      type: 'article',
-      url: '#',
-      completed: false,
-      xpReward: 250
-    }
-  ]);
-
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [learningModules, setLearningModules] = useState<LearningModule[]>([]);
   const [skillGaps] = useState<string[]>(['Python', 'System Design', 'Docker', 'AWS']);
+  const [loading, setLoading] = useState(true);
 
-  const updateQuizScore = (quizId: string, score: number) => {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [quizzesResponse, modulesResponse] = await Promise.all([
+          quizAPI.getQuizzes(),
+          learningAPI.getModules()
+        ]);
+
+        if (quizzesResponse.data.success) {
+          setQuizzes(quizzesResponse.data.quizzes.map((quiz: any) => ({
+            ...quiz,
+            id: quiz._id,
+            completed: false // This will be updated based on user progress
+          })));
+        }
+
+        if (modulesResponse.data.success) {
+          setLearningModules(modulesResponse.data.modules.map((module: any) => ({
+            ...module,
+            id: module._id,
+            url: module.content?.url || '#',
+            duration: module.content?.duration || '30 min'
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const updateQuizScore = async (quizId: string, score: number) => {
     setQuizzes(prev => prev.map(quiz => 
       quiz.id === quizId ? { ...quiz, completed: true, score } : quiz
     ));
   };
 
-  const completeModule = (moduleId: string) => {
-    setLearningModules(prev => prev.map(module => 
-      module.id === moduleId ? { ...module, completed: true } : module
-    ));
+  const completeModule = async (moduleId: string) => {
+    try {
+      const response = await learningAPI.completeModule(moduleId);
+      if (response.data.success) {
+        setLearningModules(prev => prev.map(module => 
+          module.id === moduleId ? { ...module, completed: true } : module
+        ));
+      }
+    } catch (error) {
+      console.error('Error completing module:', error);
+    }
   };
 
   const getRecommendedModules = (skills: string[]) => {
