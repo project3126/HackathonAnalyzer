@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
-import { resumeAPI } from '../../services/api';
+import { resumeAPI, jobRoleAPI, progressAPI } from '../../services/api';
 import { Upload, FileText, Target, TrendingUp, CheckCircle, X } from 'lucide-react';
 
 export default function SkillAnalysis() {
@@ -13,6 +13,23 @@ export default function SkillAnalysis() {
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [skillGapData, setSkillGapData] = useState<any>(null);
+  const [availableRoles, setAvailableRoles] = useState<any[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string>('');
+
+  useEffect(() => {
+    fetchAvailableRoles();
+  }, []);
+
+  const fetchAvailableRoles = async () => {
+    try {
+      const response = await jobRoleAPI.getJobRoles();
+      if (response.data.success) {
+        setAvailableRoles(response.data.jobRoles);
+      }
+    } catch (error) {
+      console.error('Error fetching job roles:', error);
+    }
+  };
 
   const currentSkills = user?.skills || ['JavaScript', 'React', 'Node.js', 'HTML', 'CSS'];
   const desiredRole = user?.desiredRole || 'Senior Full Stack Developer';
@@ -46,9 +63,9 @@ export default function SkillAnalysis() {
           updateUser({ profileComplete: true });
           setShowUpload(false);
           
-          // Auto-analyze skills if desired role is set
-          if (user?.desiredRole) {
-            await analyzeSkills(user.desiredRole);
+          // Auto-analyze skills if role is selected
+          if (selectedRole) {
+            await analyzeSkills(selectedRole);
           }
         }
       } catch (error) {
@@ -60,10 +77,41 @@ export default function SkillAnalysis() {
     }
   };
 
-  const analyzeSkills = async (desiredRole: string) => {
+  const analyzeSkills = async (roleId: string) => {
     setAnalyzing(true);
     try {
-      const response = await resumeAPI.analyzeSkills(desiredRole);
+      // Get role skills
+      const roleResponse = await jobRoleAPI.getJobRoleSkills(roleId);
+      if (roleResponse.data.success) {
+        const roleSkills = roleResponse.data.skills;
+        
+        // Analyze skill gap
+        const response = await resumeAPI.analyzeSkills(roleResponse.data.roleTitle);
+        if (response.data.success) {
+          setSkillGapData({
+            ...response.data.analysis,
+            roleSkills: roleSkills
+          });
+          
+          // Update progress tracking
+          await progressAPI.updateSkillProgress('overall', {
+            currentLevel: response.data.analysis.matchPercentage
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Skill analysis error:', error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleRoleSelection = async (roleId: string) => {
+    setSelectedRole(roleId);
+    if (analysisComplete) {
+      await analyzeSkills(roleId);
+    }
+  };
       if (response.data.success) {
         setSkillGapData(response.data.analysis);
       }

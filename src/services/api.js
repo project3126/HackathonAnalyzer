@@ -79,4 +79,22 @@ export const adminAPI = {
   generateReport: (type, params) => api.get(`/admin/reports/${type}`, { params }),
 };
 
+// Progress API
+export const progressAPI = {
+  getProgress: () => api.get('/progress'),
+  updateSkillProgress: (skillName, data) => api.put(`/progress/skill/${skillName}`, data),
+  addAchievement: (achievement) => api.post('/progress/achievement', achievement),
+  getAnalytics: () => api.get('/progress/analytics'),
+};
+
+// Job Roles API
+export const jobRoleAPI = {
+  getJobRoles: (params) => api.get('/job-roles', { params }),
+  getJobRole: (id) => api.get(`/job-roles/${id}`),
+  getJobRoleSkills: (id) => api.get(`/job-roles/${id}/skills`),
+  createJobRole: (data) => api.post('/job-roles', data),
+  updateJobRole: (id, data) => api.put(`/job-roles/${id}`, data),
+  deleteJobRole: (id) => api.delete(`/job-roles/${id}`),
+};
+
 export default api;

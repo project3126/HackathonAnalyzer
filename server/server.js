@@ -14,6 +14,8 @@ const quizRoutes = require('./routes/quiz');
 const learningRoutes = require('./routes/learning');
 const interviewRoutes = require('./routes/interview');
 const adminRoutes = require('./routes/admin');
+const progressRoutes = require('./routes/progress');
+const jobRoleRoutes = require('./routes/jobRoles');
 
 // Import database connection
 const connectDB = require('./config/database');
@@ -41,6 +43,8 @@ app.use('/api/quiz', quizRoutes);
 app.use('/api/learning', learningRoutes);
 app.use('/api/interview', interviewRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/progress', progressRoutes);
+app.use('/api/job-roles', jobRoleRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
