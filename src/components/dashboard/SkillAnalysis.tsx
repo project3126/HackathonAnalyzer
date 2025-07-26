@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { resumeAPI, jobRoleAPI, progressAPI } from '../../services/api';
@@ -110,15 +110,6 @@ export default function SkillAnalysis() {
     setSelectedRole(roleId);
     if (analysisComplete) {
       await analyzeSkills(roleId);
-    }
-  };
-      if (response.data.success) {
-        setSkillGapData(response.data.analysis);
-      }
-    } catch (error) {
-      console.error('Skill analysis error:', error);
-    } finally {
-      setAnalyzing(false);
     }
   };
 
@@ -241,12 +232,35 @@ export default function SkillAnalysis() {
 
           {/* Role Analysis */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Role Analysis</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Target Role Selection</h3>
+            
+            {/* Role Selection Dropdown */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Target Role
+              </label>
+              <select
+                value={selectedRole}
+                onChange={(e) => handleRoleSelection(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Choose a role...</option>
+                {availableRoles.map((role) => (
+                  <option key={role._id} value={role._id}>
+                    {role.title} ({role.level} - {role.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {selectedRole && (
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Target Role</p>
-                  <p className="text-xl font-bold text-gray-900">{desiredRole}</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {availableRoles.find(r => r._id === selectedRole)?.title || 'Loading...'}
+                  </p>
                   {analyzing && (
                     <div className="flex items-center space-x-2 mt-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -262,6 +276,7 @@ export default function SkillAnalysis() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* Skill Categories */}

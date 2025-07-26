@@ -10,7 +10,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed": "cd server && node seeders/seedData.js"
+    "seed": "cd server && node seeders/seedData.js",
+    "seed:roles": "cd server && node seeders/seedJobRoles.js",
+    "seed:all": "npm run seed && npm run seed:roles"
   },
   "dependencies": {
     "axios": "^1.11.0",
